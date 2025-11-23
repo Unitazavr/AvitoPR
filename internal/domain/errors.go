@@ -1,1 +1,28 @@
 package domain
+
+import "errors"
+
+// --- Error response (API) ---
+// соответствует OpenAPI components.schemas.ErrorResponse
+type ErrorResponse struct {
+	Error ErrorBody `json:"error"`
+}
+
+type ErrorBody struct {
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
+
+// Коды ошибок (enum из OpenAPI)
+type ErrorCode string
+
+const (
+	ErrCodeTeamExists  ErrorCode = "TEAM_EXISTS"
+	ErrCodePRExists    ErrorCode = "PR_EXISTS"
+	ErrCodePRMerged    ErrorCode = "PR_MERGED"
+	ErrCodeNotAssigned ErrorCode = "NOT_ASSIGNED"
+	ErrCodeNoCandidate ErrorCode = "NO_CANDIDATE"
+	ErrCodeNotFound    ErrorCode = "NOT_FOUND"
+)
+
+var ErrNotFound = errors.New("not found")
