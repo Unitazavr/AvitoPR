@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TeamRepository — интерфейс для работы с командами
 type TeamRepository interface {
 	Create(ctx context.Context, team *domain.Team) error
 	GetByID(ctx context.Context, teamID string) (*domain.Team, error)
@@ -21,7 +20,6 @@ func NewTeamRepo(pool *pgxpool.Pool) TeamRepository {
 	return &TeamRepo{pool: pool}
 }
 
-// Create — создание новой команды
 func (r *TeamRepo) Create(ctx context.Context, team *domain.Team) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -29,7 +27,6 @@ func (r *TeamRepo) Create(ctx context.Context, team *domain.Team) error {
 	}
 	defer tx.Rollback(ctx)
 
-	// Вставляем команду
 	var teamID string
 	err = tx.QueryRow(ctx,
 		`INSERT INTO teams (name) VALUES ($1) RETURNING id`,
@@ -76,7 +73,6 @@ func (r *TeamRepo) Create(ctx context.Context, team *domain.Team) error {
 	return tx.Commit(ctx)
 }
 
-// GetByID — получение команды по ID
 func (r *TeamRepo) GetByID(ctx context.Context, teamID string) (*domain.Team, error) {
 	var teamName string
 	err := r.pool.QueryRow(ctx,
@@ -120,7 +116,6 @@ func (r *TeamRepo) GetByID(ctx context.Context, teamID string) (*domain.Team, er
 	}, nil
 }
 
-// GetByName — поиск команды по имени (полезно при проверке уникальности)
 func (r *TeamRepo) GetByName(ctx context.Context, name string) (*domain.Team, error) {
 	var teamID string
 	err := r.pool.QueryRow(ctx,

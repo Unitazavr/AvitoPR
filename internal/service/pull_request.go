@@ -29,9 +29,9 @@ func NewPrService(prRepo repository.PrRepository) PrService {
 func (s *prService) CreatePR(ctx context.Context, pr *domain.PullRequestShort) (*domain.PullRequest, error) {
 	err := s.prRepo.Create(ctx, pr)
 	if err != nil {
-		// Проверяем ошибку уникальности (PR уже существует)
+
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, &domain.ErrorResponse{
 				ErrorContent: domain.ErrorBody{
 					Code:    domain.ErrCodePRExists,
@@ -40,7 +40,6 @@ func (s *prService) CreatePR(ctx context.Context, pr *domain.PullRequestShort) (
 			}
 		}
 
-		// Проверяем ошибку NOT NULL или FOREIGN KEY (автор не найден)
 		if errors.As(err, &pgErr) && (pgErr.Code == "23502" || pgErr.Code == "23503") {
 			return nil, &domain.ErrorResponse{
 				ErrorContent: domain.ErrorBody{
@@ -62,14 +61,13 @@ func (s *prService) CreatePR(ctx context.Context, pr *domain.PullRequestShort) (
 		return nil, err
 	}
 
-	// Возвращаем полный объект PullRequest
-	return &domain.PullRequest{
-		PullRequestID:     pr.PullRequestID,
-		PullRequestName:   pr.PullRequestName,
-		AuthorID:          pr.AuthorID,
-		Status:            pr.Status,
-		AssignedReviewers: []string{}, // Будет заполнено позже, если нужно
-	}, nil
+	// Получаем полный PR с ревьюверами
+	fullPR, err := s.prRepo.GetByID(ctx, pr.PullRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	return fullPR, nil
 }
 
 func (s *prService) MergePR(ctx context.Context, prID string) (*domain.PullRequest, error) {
@@ -86,17 +84,19 @@ func (s *prService) MergePR(ctx context.Context, prID string) (*domain.PullReque
 		return nil, err
 	}
 
-	// Возвращаем обновленный PR
-	return &domain.PullRequest{
-		PullRequestID: prID,
-		Status:        domain.PRStatusMerged,
-	}, nil
+	// Получаем полный PR после мерджа
+	fullPR, err := s.prRepo.GetByID(ctx, prID)
+	if err != nil {
+		return nil, err
+	}
+
+	return fullPR, nil
 }
 
 func (s *prService) ReassignPR(ctx context.Context, pullRequestID, oldUserID string) (*domain.PullRequest, string, error) {
-	err := s.prRepo.Reassign(ctx, pullRequestID, oldUserID)
+	newReviewerID, err := s.prRepo.Reassign(ctx, pullRequestID, oldUserID)
 	if err != nil {
-		// PR не найден
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, "", &domain.ErrorResponse{
 				ErrorContent: domain.ErrorBody{
@@ -106,7 +106,6 @@ func (s *prService) ReassignPR(ctx context.Context, pullRequestID, oldUserID str
 			}
 		}
 
-		// Проверяем специфичные ошибки по тексту сообщения
 		errMsg := err.Error()
 
 		if strings.Contains(errMsg, "cannot reassign reviewers for merged PR") {
@@ -148,9 +147,11 @@ func (s *prService) ReassignPR(ctx context.Context, pullRequestID, oldUserID str
 		return nil, "", err
 	}
 
-	// Возвращаем обновленный PR (в реальности нужно было бы получить новый список ревьюверов)
-	return &domain.PullRequest{
-		PullRequestID: pullRequestID,
-		Status:        domain.PRStatusOpen,
-	}, "", nil // новый reviewer_id нужно получить из репозитория
+	// Получаем полный PR после переназначения
+	fullPR, err := s.prRepo.GetByID(ctx, pullRequestID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return fullPR, newReviewerID, nil
 }

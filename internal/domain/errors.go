@@ -19,7 +19,6 @@ type ErrorBody struct {
 	Message string    `json:"message"`
 }
 
-// Коды ошибок (enum из OpenAPI)
 type ErrorCode string
 
 const (
@@ -29,6 +28,7 @@ const (
 	ErrCodeNotAssigned ErrorCode = "NOT_ASSIGNED"
 	ErrCodeNoCandidate ErrorCode = "NO_CANDIDATE"
 	ErrCodeNotFound    ErrorCode = "NOT_FOUND"
+	ErrUnknown         ErrorCode = "UNKNOWN ERROR"
 )
 
 var ErrNotFound = errors.New("not found")

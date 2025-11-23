@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/Unitazavr/AvitoPR/internal/http"
 	"github.com/Unitazavr/AvitoPR/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,8 +40,8 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	//Роутинг
-	transport.RegisterRoutes(router, userRepo, teamRepo)
+	//Роутинг, создание сервисов и контроллеров
+	http.RegisterRoutes(router, userRepo, teamRepo, prRepo)
 
 	addr := ":" + port
 	log.Printf("starting server on %s", addr)

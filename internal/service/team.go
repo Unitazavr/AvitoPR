@@ -27,9 +27,9 @@ func NewTeamService(teamRepo repository.TeamRepository) TeamService {
 func (s *teamService) CreateTeam(ctx context.Context, team *domain.Team) (*domain.Team, error) {
 	err := s.teamRepo.Create(ctx, team)
 	if err != nil {
-		// Проверяем ошибку уникальности (команда уже существует)
+
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil, &domain.ErrorResponse{
 				ErrorContent: domain.ErrorBody{
 					Code:    domain.ErrCodeTeamExists,

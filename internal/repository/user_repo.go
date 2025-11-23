@@ -22,9 +22,17 @@ func NewUserRepo(pool *pgxpool.Pool) UserRepository {
 }
 
 func (r *UserRepo) GetByUserID(ctx context.Context, userID string) (*domain.User, error) {
-	row := r.pool.QueryRow(ctx, `SELECT user_id, username, is_active FROM users WHERE user_id = $1`, userID)
+	row := r.pool.QueryRow(ctx, `
+		SELECT u.id, u.username, u.is_active, COALESCE(t.name, '') as team_name
+		FROM users u
+		LEFT JOIN team_members tm ON u.id = tm.user_id
+		LEFT JOIN teams t ON tm.team_id = t.id
+		WHERE u.id = $1
+		LIMIT 1
+	`, userID)
+
 	var u domain.User
-	if err := row.Scan(&u.UserID, &u.Username, &u.IsActive); err != nil {
+	if err := row.Scan(&u.UserID, &u.Username, &u.IsActive, &u.TeamName); err != nil {
 		return nil, domain.ErrNotFound
 	}
 	return &u, nil

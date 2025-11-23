@@ -17,7 +17,7 @@ type Team struct {
 	Members  []TeamMember `json:"members"`
 }
 
-// User соответствует components.schemas.User (API представление пользователя)
+// User соответствует components.schemas.User
 type User struct {
 	UserID   string `json:"user_id"`
 	Username string `json:"username"`

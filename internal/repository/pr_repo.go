@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// PullRequestRepository — интерфейс для работы с пулл реквестами
 type PrRepository interface {
 	Create(ctx context.Context, pr *domain.PullRequestShort) error
 	Merge(ctx context.Context, prId string) error
-	Reassign(ctx context.Context, pullRequestId, oldUserId string) error
+	Reassign(ctx context.Context, pullRequestId, oldUserId string) (newReviewerID string, err error)
+	GetByID(ctx context.Context, prID string) (*domain.PullRequest, error)
 }
 
 type PrRepo struct {
@@ -25,7 +25,6 @@ func NewPrRepo(pool *pgxpool.Pool) PrRepository {
 	return &PrRepo{pool: pool}
 }
 
-// Create — создание нового PR с автоматическим назначением до двух ревьюверов
 func (r *PrRepo) Create(ctx context.Context, pr *domain.PullRequestShort) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -106,7 +105,6 @@ func (r *PrRepo) Create(ctx context.Context, pr *domain.PullRequestShort) error 
 	return tx.Commit(ctx)
 }
 
-// Merge — слияние PR (изменение статуса на MERGED и установка времени)
 func (r *PrRepo) Merge(ctx context.Context, prId string) error {
 	result, err := r.pool.Exec(ctx,
 		`UPDATE prs 
@@ -129,11 +127,10 @@ func (r *PrRepo) Merge(ctx context.Context, prId string) error {
 	return nil
 }
 
-// Reassign — переназначение ревьювера (замена oldUserId на случайного активного из его команды)
-func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) error {
+func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) (newReviewerID string, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer tx.Rollback(ctx)
 
@@ -144,11 +141,11 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		pullRequestId,
 	).Scan(&status)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if status == string(domain.PRStatusMerged) {
-		return fmt.Errorf("cannot reassign reviewers for merged PR")
+		return "", fmt.Errorf("cannot reassign reviewers for merged PR")
 	}
 
 	// Проверяем, что oldUserId является ревьювером этого PR
@@ -159,11 +156,11 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		oldUserId,
 	).Scan(&exists)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if !exists {
-		return fmt.Errorf("user is not a reviewer of this PR")
+		return "", fmt.Errorf("user is not a reviewer of this PR")
 	}
 
 	// Получаем команду заменяемого ревьювера
@@ -174,9 +171,9 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 	).Scan(&teamID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("user is not in any team")
+			return "", fmt.Errorf("user is not in any team")
 		}
-		return err
+		return "", err
 	}
 
 	// Получаем автора PR
@@ -186,7 +183,7 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		pullRequestId,
 	).Scan(&authorID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Получаем текущих ревьюверов PR
@@ -195,7 +192,7 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		pullRequestId,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var currentReviewers []string
@@ -203,14 +200,14 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		var reviewerID string
 		if err := rows.Scan(&reviewerID); err != nil {
 			rows.Close()
-			return err
+			return "", err
 		}
 		currentReviewers = append(currentReviewers, reviewerID)
 	}
 	rows.Close()
 
 	if err = rows.Err(); err != nil {
-		return err
+		return "", err
 	}
 
 	// Находим случайного активного участника из команды, исключая автора и текущих ревьюверов
@@ -229,13 +226,12 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 
 	query += " ORDER BY RANDOM() LIMIT 1"
 
-	var newReviewerID string
 	err = tx.QueryRow(ctx, query, args...).Scan(&newReviewerID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return fmt.Errorf("no available reviewers in team")
+			return "", fmt.Errorf("no available reviewers in team")
 		}
-		return err
+		return "", err
 	}
 
 	// Удаляем старого ревьювера
@@ -245,7 +241,7 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		oldUserId,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Добавляем нового ревьювера
@@ -255,13 +251,12 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 		newReviewerID,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return tx.Commit(ctx)
+	return newReviewerID, tx.Commit(ctx)
 }
 
-// GetByID — получение полного PR
 func (r *PrRepo) GetByID(ctx context.Context, prID string) (*domain.PullRequest, error) {
 	// Получаем основные данные PR
 	var pr domain.PullRequest
