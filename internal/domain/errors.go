@@ -1,11 +1,17 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
-// --- Error response (API) ---
-// соответствует OpenAPI components.schemas.ErrorResponse
 type ErrorResponse struct {
-	Error ErrorBody `json:"error"`
+	ErrorContent ErrorBody `json:"error"`
+}
+
+func (e ErrorResponse) Error() string {
+	return fmt.Sprintf("Code: %s \n"+
+		"Message: %s \n", e.ErrorContent.Code, e.ErrorContent.Message)
 }
 
 type ErrorBody struct {

@@ -10,6 +10,7 @@ import (
 type UserRepository interface {
 	GetByUserID(ctx context.Context, userID string) (*domain.User, error)
 	SetIsActive(ctx context.Context, userID string, isActive bool) (*domain.User, error)
+	GetPullRequests(ctx context.Context, userID string) ([]domain.PullRequestShort, error)
 }
 
 type UserRepo struct {
