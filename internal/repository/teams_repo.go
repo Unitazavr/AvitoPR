@@ -38,32 +38,15 @@ func (r *TeamRepo) Create(ctx context.Context, team *domain.Team) error {
 
 	// Обрабатываем каждого участника команды
 	for _, member := range team.Members {
-		var userID string
-
-		// Пытаемся получить существующего пользователя
-		err = tx.QueryRow(ctx,
-			`SELECT id FROM users WHERE id = $1`,
-			member.UserID,
-		).Scan(&userID)
-
+		userID, err := r.getOrCreateUser(ctx, &member)
 		if err != nil {
-			// Пользователя нет в базе - добавляем его
-			err = tx.QueryRow(ctx,
-				`INSERT INTO users (id, username, is_active) VALUES ($1, $2, $3) RETURNING id`,
-				member.UserID,
-				member.Username,
-				member.IsActive,
-			).Scan(&userID)
-			if err != nil {
-				return err
-			}
+			return err
 		}
 
 		// Добавляем связь команда-пользователь
 		_, err = tx.Exec(ctx,
 			`INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)`,
-			teamID,
-			userID,
+			teamID, userID,
 		)
 		if err != nil {
 			return err
@@ -71,6 +54,28 @@ func (r *TeamRepo) Create(ctx context.Context, team *domain.Team) error {
 	}
 
 	return tx.Commit(ctx)
+}
+
+// Отдельная функция для работы с пользователями в своей транзакции
+func (r *TeamRepo) getOrCreateUser(ctx context.Context, member *domain.TeamMember) (string, error) {
+	var userID string
+
+	// Сначала пытаемся найти пользователя в отдельной транзакции/запросе
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM users WHERE id = $1`,
+		member.UserID,
+	).Scan(&userID)
+
+	if err == nil {
+		return userID, nil // Пользователь найден
+	}
+	// Пользователя нет - создаём в отдельной транзакции
+	err = r.pool.QueryRow(ctx,
+		`INSERT INTO users (username, is_active) VALUES ($1, $2) RETURNING id`,
+		member.Username, member.IsActive,
+	).Scan(&userID)
+
+	return userID, err
 }
 
 func (r *TeamRepo) GetByID(ctx context.Context, teamID string) (*domain.Team, error) {

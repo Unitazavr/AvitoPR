@@ -39,7 +39,7 @@ func (r *UserRepo) GetByUserID(ctx context.Context, userID string) (*domain.User
 }
 
 func (r *UserRepo) SetIsActive(ctx context.Context, userID string, isActive bool) (*domain.User, error) {
-	tag, err := r.pool.Exec(ctx, `UPDATE users SET is_active = $1 WHERE user_id = $2`, isActive, userID)
+	tag, err := r.pool.Exec(ctx, `UPDATE users SET is_active = $1 WHERE id = $2`, isActive, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,18 +50,18 @@ func (r *UserRepo) SetIsActive(ctx context.Context, userID string, isActive bool
 }
 
 func (r *UserRepo) GetPullRequests(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
-	row, err := r.pool.Query(ctx, `SELECT id, pull_request_name, author_id, status FROM prs WHERE id IN (
+	rows, err := r.pool.Query(ctx, `SELECT id, pull_request_name, author_id, status FROM prs WHERE id IN (
     SELECT pr_id FROM pr_reviewers WHERE user_id = $1 )`, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer row.Close()
+	defer rows.Close()
 
 	var prs []domain.PullRequestShort
-	for row.Next() {
+	for rows.Next() {
 		var pr domain.PullRequestShort
 
-		err := row.Scan(
+		err := rows.Scan(
 			&pr.PullRequestID,
 			&pr.PullRequestName,
 			&pr.AuthorID,
@@ -70,11 +70,10 @@ func (r *UserRepo) GetPullRequests(ctx context.Context, userID string) ([]domain
 		if err != nil {
 			return nil, err
 		}
-
 		prs = append(prs, pr)
 	}
 
-	if err := row.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 

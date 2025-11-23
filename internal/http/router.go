@@ -28,13 +28,13 @@ func RegisterRoutes(router *gin.Engine, userRepo repository.UserRepository, team
 
 	usersGroup := router.Group("/users")
 	{
-		usersGroup.PATCH("/setIsActive", userHandler.SetIsActive)
+		usersGroup.POST("/setIsActive", userHandler.SetIsActive)
 		usersGroup.GET("/getReview", userHandler.GetUserReviews)
 	}
 
-	router.POST("/pullRequests/create", prHandler.CreatePR)
-	router.PATCH("/pullRequest/merge", prHandler.MergePR)
-	router.PATCH("/pullRequests/reassign", prHandler.ReassignPR)
+	router.POST("/pullRequest/create", prHandler.CreatePR)
+	router.POST("/pullRequest/merge", prHandler.MergePR)
+	router.POST("/pullRequest/reassign", prHandler.ReassignPR)
 }
 
 func ErrorMiddleware() gin.HandlerFunc {

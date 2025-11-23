@@ -33,13 +33,16 @@ func (s *teamService) CreateTeam(ctx context.Context, team *domain.Team) (*domai
 			return nil, &domain.ErrorResponse{
 				ErrorContent: domain.ErrorBody{
 					Code:    domain.ErrCodeTeamExists,
-					Message: "team_name already exists",
+					Message: "team already exists",
 				},
 			}
 		}
 		return nil, err
 	}
-
+	team, err = s.GetTeamByName(ctx, team.TeamName)
+	if err != nil {
+		return nil, err
+	}
 	return team, nil
 }
 

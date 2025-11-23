@@ -52,10 +52,6 @@ func (r *PrRepo) Create(ctx context.Context, pr *domain.PullRequestShort) error 
 		pr.AuthorID,
 	).Scan(&teamID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			// Автор не состоит в команде - PR создается без ревьюверов
-			return tx.Commit(ctx)
-		}
 		return err
 	}
 
@@ -109,11 +105,10 @@ func (r *PrRepo) Merge(ctx context.Context, prId string) error {
 	result, err := r.pool.Exec(ctx,
 		`UPDATE prs 
 		 SET status = $1, merged_at = $2 
-		 WHERE id = $3 AND status = $4`,
+		 WHERE id = $3`,
 		domain.PRStatusMerged,
 		time.Now(),
 		prId,
-		domain.PRStatusOpen,
 	)
 	if err != nil {
 		return err

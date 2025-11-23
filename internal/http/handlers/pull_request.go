@@ -70,7 +70,7 @@ func (h *PrHandler) MergePR(c *gin.Context) {
 func (h *PrHandler) ReassignPR(c *gin.Context) {
 	var req struct {
 		PullRequestID string `json:"pull_request_id"`
-		OldUserID     string `json:"old_user_id"`
+		OldUserID     string `json:"old_reviewer_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {

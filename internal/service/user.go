@@ -10,7 +10,7 @@ import (
 
 type UserService interface {
 	SetIsActive(ctx context.Context, userID string, isActive bool) (*domain.User, error)
-	GetUserReviews(ctx context.Context, userID string) (*domain.UserReport, error)
+	GetUserReviews(ctx context.Context, userID string) ([]domain.PullRequestShort, error)
 }
 
 type userService struct {
@@ -40,25 +40,11 @@ func (s *userService) SetIsActive(ctx context.Context, userID string, isActive b
 	return user, nil
 }
 
-func (s *userService) GetUserReviews(ctx context.Context, userID string) (*domain.UserReport, error) {
+func (s *userService) GetUserReviews(ctx context.Context, userID string) ([]domain.PullRequestShort, error) {
 	prs, err := s.userRepo.GetPullRequests(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Преобразуем в UserReport
-	pullRequests := make([]domain.PullRequest, 0, len(prs))
-	for _, pr := range prs {
-		pullRequests = append(pullRequests, domain.PullRequest{
-			PullRequestID:   pr.PullRequestID,
-			PullRequestName: pr.PullRequestName,
-			AuthorID:        pr.AuthorID,
-			Status:          pr.Status,
-		})
-	}
-
-	return &domain.UserReport{
-		UserID:       userID,
-		PullRequests: pullRequests,
-	}, nil
+	return prs, nil
 }
