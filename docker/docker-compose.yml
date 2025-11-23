@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  db:
+    platform: linux/arm64
+    image: postgres:15
+    environment:
+      POSTGRES_DB: pr_service
+      POSTGRES_USER: pr_user
+      POSTGRES_PASSWORD: pr_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pr_user -d pr_service"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:latest
+    volumes:
+      - ./migrations/migrations:/migrations
+    command: ["-path", "/migrations", "-database", "postgres://pr_user:pr_pass@db:5432/pr_service?sslmode=disable", "up"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    platform: linux/arm64
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - PORT=8080
+      - POSTGRES_DSN=postgres://pr_user:pr_pass@db:5432/pr_service?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - migrate
