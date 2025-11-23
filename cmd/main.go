@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
+	"github.com/Unitazavr/AvitoPR/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"os"
-
-	"yourmodule/internal/repository"
-	"yourmodule/internal/transport"
 )
 
 func main() {
@@ -31,7 +29,7 @@ func main() {
 
 	userRepo := repository.NewUserRepo(pool)
 	teamRepo := repository.NewTeamRepo(pool)
-	prRepo := repository.NewPRRepo(pool)
+	prRepo := repository.NewPrRepo(pool)
 
 	//Джин
 	if os.Getenv("GIN_MODE") == "release" {

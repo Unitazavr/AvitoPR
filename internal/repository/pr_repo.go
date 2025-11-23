@@ -260,3 +260,50 @@ func (r *PrRepo) Reassign(ctx context.Context, pullRequestId, oldUserId string) 
 
 	return tx.Commit(ctx)
 }
+
+// GetByID — получение полного PR
+func (r *PrRepo) GetByID(ctx context.Context, prID string) (*domain.PullRequest, error) {
+	// Получаем основные данные PR
+	var pr domain.PullRequest
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, pull_request_name, author_id, status, created_at, merged_at
+		 FROM prs WHERE id = $1`,
+		prID,
+	).Scan(
+		&pr.PullRequestID,
+		&pr.PullRequestName,
+		&pr.AuthorID,
+		&pr.Status,
+		&pr.CreatedAt,
+		&pr.MergedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем список ревьюверов
+	rows, err := r.pool.Query(ctx,
+		`SELECT user_id FROM pr_reviewers WHERE pr_id = $1`,
+		prID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reviewers []string
+	for rows.Next() {
+		var reviewerID string
+		if err := rows.Scan(&reviewerID); err != nil {
+			return nil, err
+		}
+		reviewers = append(reviewers, reviewerID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	pr.AssignedReviewers = reviewers
+	return &pr, nil
+}
